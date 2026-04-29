@@ -29,17 +29,6 @@ function App() {
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [geminiApiKey, setGeminiApiKey] = useState<string>(() => {
-    return typeof window !== 'undefined' ? localStorage.getItem('GEMINI_API_KEY') || '' : '';
-  });
-
-  useEffect(() => {
-    if (geminiApiKey) {
-      localStorage.setItem('GEMINI_API_KEY', geminiApiKey);
-    } else {
-      localStorage.removeItem('GEMINI_API_KEY');
-    }
-  }, [geminiApiKey]);
 
   const [showExportMenu, setShowExportMenu] = useState(false);
   const paperRef = useRef<HTMLDivElement>(null);
@@ -523,17 +512,6 @@ function App() {
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2 col-span-1 md:col-span-2">
-                  <label className="text-sm font-medium text-neutral-700">Gemini API Key (Optional)</label>
-                  <input
-                    type="password"
-                    value={geminiApiKey}
-                    onChange={(e) => setGeminiApiKey(e.target.value)}
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#b48b59] focus:border-transparent text-sm"
-                    placeholder="Enter API Key to override default. Needed for custom deployments."
-                  />
-                  <p className="text-xs text-neutral-500">Provide your own Google Gemini API Key if the default is missing or you want to use your own limits. It is saved in your browser's local storage.</p>
-                </div>
                 <div className="space-y-2 col-span-1 md:col-span-2">
                   <label className="text-sm font-medium text-neutral-700">Exam Title</label>
                   <input
