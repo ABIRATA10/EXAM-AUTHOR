@@ -29,6 +29,18 @@ function App() {
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [geminiApiKey, setGeminiApiKey] = useState<string>(() => {
+    return typeof window !== 'undefined' ? localStorage.getItem('GEMINI_API_KEY') || '' : '';
+  });
+
+  useEffect(() => {
+    if (geminiApiKey) {
+      localStorage.setItem('GEMINI_API_KEY', geminiApiKey);
+    } else {
+      localStorage.removeItem('GEMINI_API_KEY');
+    }
+  }, [geminiApiKey]);
+
   const [showExportMenu, setShowExportMenu] = useState(false);
   const paperRef = useRef<HTMLDivElement>(null);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -491,7 +503,18 @@ function App() {
               <p className="text-sm text-neutral-500 mt-1">Configure the structure and difficulty of your question paper.</p>
             </div>
             
-            <div className="p-6 space-y-6">
+            
+            <div className="p-6 space-y-6 relative">
+              {isGenerating && (
+                <div className="absolute inset-0 z-50 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center rounded-b-xl border-t border-neutral-100">
+                  <Loader2 className="w-12 h-12 text-[#b48b59] animate-spin mb-4" />
+                  <h3 className="text-xl font-bold text-neutral-800">Generating Paper...</h3>
+                  <p className="text-sm text-neutral-500 mt-2 max-w-sm text-center">
+                    Please wait while our AI constructs a balanced question paper based on your specifications. This may take up to 20 seconds.
+                  </p>
+                </div>
+              )}
+
               {error && (
                 <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md flex items-start space-x-3">
                   <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
@@ -500,6 +523,17 @@ function App() {
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2 col-span-1 md:col-span-2">
+                  <label className="text-sm font-medium text-neutral-700">Gemini API Key (Optional)</label>
+                  <input
+                    type="password"
+                    value={geminiApiKey}
+                    onChange={(e) => setGeminiApiKey(e.target.value)}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#b48b59] focus:border-transparent text-sm"
+                    placeholder="Enter API Key to override default. Needed for custom deployments."
+                  />
+                  <p className="text-xs text-neutral-500">Provide your own Google Gemini API Key if the default is missing or you want to use your own limits. It is saved in your browser's local storage.</p>
+                </div>
                 <div className="space-y-2 col-span-1 md:col-span-2">
                   <label className="text-sm font-medium text-neutral-700">Exam Title</label>
                   <input

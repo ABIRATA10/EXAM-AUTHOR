@@ -1,10 +1,14 @@
 import { GoogleGenAI, Type, Schema } from '@google/genai';
 
 function getAI() {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY is missing. Please set it in the environment.");
+  const envKey = process.env.GEMINI_API_KEY;
+  const localKey = typeof window !== 'undefined' ? localStorage.getItem('GEMINI_API_KEY') : null;
+  const apiKey = envKey || localKey;
+
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is missing. Please provide your Gemini API key in the settings.");
   }
-  return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  return new GoogleGenAI({ apiKey });
 }
 
 export interface GeneratedQuestion {
@@ -85,6 +89,20 @@ const questionSchema: Schema = {
   required: ["questions"]
 };
 
+
+function parseCleanJSON(text: string) {
+  let cleaned = text.trim();
+  if (cleaned.startsWith('```json')) {
+    cleaned = cleaned.substring(7);
+  } else if (cleaned.startsWith('```')) {
+    cleaned = cleaned.substring(3);
+  }
+  if (cleaned.endsWith('```')) {
+    cleaned = cleaned.substring(0, cleaned.length - 3);
+  }
+  return JSON.parse(cleaned.trim());
+}
+
 export async function generateQuestionPaper(params: PaperGenerationParams): Promise<GeneratedQuestion[]> {
   const sumWeights = params.difficultyLevels.easy + params.difficultyLevels.medium + params.difficultyLevels.hard || 1;
   const easyPct = Math.round((params.difficultyLevels.easy / sumWeights) * 100);
@@ -135,13 +153,13 @@ ${params.pastQuestionsToAvoid ? `CRITICAL: Ensure that NONE of the following pas
     });
 
     if (response.text) {
-      const parsed = JSON.parse(response.text);
+      const parsed = parseCleanJSON(response.text);
       return parsed.questions as GeneratedQuestion[];
     }
     return [];
   } catch (error) {
     console.error("Error generating question paper:", error);
-    throw new Error("Failed to generate question paper. Please try again.");
+    throw new Error("Failed to generate question paper: " + (error instanceof Error ? error.message : String(error)));
   }
 }
 
@@ -215,7 +233,7 @@ Output as a structured JSON object matching the requested schema.
     });
 
     if (response.text) {
-      const parsed = JSON.parse(response.text);
+      const parsed = parseCleanJSON(response.text);
       return {
         ...parsed,
         id: Math.random().toString(36).substring(7) // regenerate a new ID
@@ -224,7 +242,7 @@ Output as a structured JSON object matching the requested schema.
     throw new Error("Empty response");
   } catch (error) {
     console.error("Error regenerating question:", error);
-    throw new Error("Failed to regenerate question. Please try again.");
+    throw new Error("Failed to regenerate question: " + (error instanceof Error ? error.message : String(error)));
   }
 }
 
@@ -259,7 +277,7 @@ Requirements:
     });
 
     if (response.text) {
-      const parsed = JSON.parse(response.text);
+      const parsed = parseCleanJSON(response.text);
       return parsed.questions as GeneratedQuestion[];
     }
     return [];
