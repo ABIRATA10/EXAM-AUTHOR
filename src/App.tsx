@@ -13,6 +13,12 @@ interface ExamHistoryItem {
   questions: GeneratedQuestion[];
 }
 
+interface ExamTemplate {
+  id: string;
+  name: string;
+  params: PaperGenerationParams;
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState<'create' | 'paper' | 'analytics'>('create');
   const [history, setHistory] = useState<ExamHistoryItem[]>(() => {
@@ -22,6 +28,15 @@ function App() {
   useEffect(() => {
     localStorage.setItem('exam-history', JSON.stringify(history));
   }, [history]);
+
+  const [templates, setTemplates] = useState<ExamTemplate[]>(() => {
+    const saved = localStorage.getItem('exam-templates');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [templateNameInput, setTemplateNameInput] = useState<string>('');
+  useEffect(() => {
+    localStorage.setItem('exam-templates', JSON.stringify(templates));
+  }, [templates]);
 
   const [recommendedQuestions, setRecommendedQuestions] = useState<GeneratedQuestion[]>([]);
   const [isFetchingRecommended, setIsFetchingRecommended] = useState(false);
@@ -83,7 +98,8 @@ function App() {
       if (params.difficultyLevels.easy + params.difficultyLevels.medium + params.difficultyLevels.hard !== 100) {
         throw new Error("Difficulty levels must sum up to 100%");
       }
-      const newQuestions = await generateQuestionPaper(params);
+      let newQuestions = await generateQuestionPaper(params);
+      newQuestions = newQuestions.sort((a, b) => a.marks - b.marks);
       setQuestions(newQuestions);
       
       const newHistoryItem: ExamHistoryItem = {
@@ -736,7 +752,44 @@ function App() {
               </div>
             </div>
             
-            <div className="p-6 bg-neutral-50/50 border-t border-neutral-200 flex justify-end">
+            <div className="p-6 bg-neutral-50/50 border-t border-neutral-200 flex flex-col sm:flex-row sm:justify-between items-center gap-4">
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <select 
+                  className="text-sm border border-neutral-300 rounded-md px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#b48b59] flex-1 sm:flex-none max-w-[160px]"
+                  onChange={(e) => {
+                    const selected = templates.find(t => t.id === e.target.value);
+                    if (selected) setParams({...selected.params});
+                    e.target.value = "";
+                  }}
+                  defaultValue=""
+                >
+                  <option value="" disabled>Load Template...</option>
+                  {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+                
+                <div className="flex items-center bg-white border border-neutral-300 rounded-md overflow-hidden flex-1 sm:flex-none">
+                  <input 
+                    type="text" 
+                    value={templateNameInput}
+                    onChange={(e) => setTemplateNameInput(e.target.value)}
+                    placeholder="New template name"
+                    className="text-sm px-3 py-2 focus:outline-none w-full sm:w-32"
+                  />
+                  <button 
+                    onClick={() => {
+                      if (templateNameInput.trim()) {
+                        setTemplates(prev => [...prev, { id: Math.random().toString(36).substring(7), name: templateNameInput.trim(), params: JSON.parse(JSON.stringify(params)) }]);
+                        setTemplateNameInput('');
+                      }
+                    }}
+                    disabled={!templateNameInput.trim()}
+                    className="px-3 py-2 border-l border-neutral-300 text-sm flex items-center gap-1 font-medium text-neutral-600 bg-neutral-100 hover:bg-neutral-200 transition-colors disabled:opacity-50 whitespace-nowrap"
+                  >
+                    <Save className="w-4 h-4" /> Save
+                  </button>
+                </div>
+              </div>
+              
               <button
                 onClick={handleGenerate}
                 disabled={isGenerating}

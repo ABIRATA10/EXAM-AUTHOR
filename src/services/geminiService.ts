@@ -137,6 +137,7 @@ ${params.includeOrChoices ? `8. CRITICAL: You MUST include internal alternatives
    - The alternative question MUST carry the SAME marks as the primary question.` : ""}
 9. If a question carries more than 5 marks and is descriptive, STRONGLY CONSIDER breaking it down into sub-parts using the 'subQuestions' array (e.g. ["a) ...", "b) ..."]). Similarly use 'orSubQuestions' for the OR alternative if applicable.
 
+10. CRITICAL: Order the questions in the output array in ascending order according to their mark weightage (i.e. 1 mark questions first, then 2 marks, then 5 marks, etc.).
 ${params.pastQuestionsToAvoid ? `CRITICAL: Ensure that NONE of the following past questions or highly similar variants are included in the new paper:\n${params.pastQuestionsToAvoid}` : ''}
   `;
 
