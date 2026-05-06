@@ -154,7 +154,6 @@ ${params.pastQuestionsToAvoid ? `CRITICAL: Ensure that NONE of the following pas
       model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
-        tools: [{ googleSearch: {} }],
         responseMimeType: 'application/json',
         responseSchema: questionSchema,
         temperature: 0.7,
@@ -235,7 +234,6 @@ Output as a structured JSON object matching the requested schema.
       model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
-        tools: [{ googleSearch: {} }],
         responseMimeType: 'application/json',
         responseSchema: singleQuestionSchema,
         temperature: 0.7,
@@ -246,7 +244,7 @@ Output as a structured JSON object matching the requested schema.
       const parsed = parseCleanJSON(response.text);
       return {
         ...parsed,
-        id: Math.random().toString(36).substring(7) // regenerate a new ID
+        id: Math.random().toString(36).substring(7)
       } as GeneratedQuestion;
     }
     throw new Error("Empty response");
@@ -280,7 +278,6 @@ Requirements:
       model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
-        tools: [{ googleSearch: {} }],
         responseMimeType: 'application/json',
         responseSchema: questionSchema,
         temperature: 0.7,
