@@ -79,6 +79,7 @@ function App() {
     topics: 'Data Structures, Searching Algorithms, Sorting Algorithms',
     totalMarks: 50,
     marksPattern: '',
+    allowedMarks: [],
     questionFormats: 'Short Answer, Long Answer, MCQs',
     includeOrChoices: false,
     difficultyLevels: { easy: 30, medium: 50, hard: 20 },
@@ -97,6 +98,9 @@ function App() {
     try {
       if (params.difficultyLevels.easy + params.difficultyLevels.medium + params.difficultyLevels.hard !== 100) {
         throw new Error("Difficulty levels must sum up to 100%");
+      }
+      if (params.numberOfQuestions !== undefined && params.numberOfQuestions <= 0) {
+        throw new Error("Number of questions must be a positive integer.");
       }
       let newQuestions = await generateQuestionPaper(params);
       newQuestions = newQuestions.sort((a, b) => a.marks - b.marks);
@@ -130,7 +134,10 @@ function App() {
     setIsRegeneratingId(qs.id);
     try {
       const newQuestion = await regenerateSingleQuestion(qs, params, questions);
-      setQuestions(current => current.map(q => q.id === qs.id ? newQuestion : q));
+      setQuestions(current => {
+        const updated = current.map(q => q.id === qs.id ? newQuestion : q);
+        return updated.sort((a, b) => a.marks - b.marks);
+      });
     } catch (err: any) {
       alert("Failed to regenerate: " + err.message);
     } finally {
@@ -145,7 +152,10 @@ function App() {
 
   const handleSaveEdit = () => {
     if (editingQuestionData && editingQuestionId !== null) {
-      setQuestions(current => current.map(q => q.id === editingQuestionId ? editingQuestionData : q));
+      setQuestions(current => {
+        const updated = current.map(q => q.id === editingQuestionId ? editingQuestionData : q);
+        return updated.sort((a, b) => a.marks - b.marks);
+      });
     }
     setEditingQuestionId(null);
     setEditingQuestionData(null);
@@ -169,7 +179,10 @@ function App() {
       difficulty: 'Medium',
       blooms_taxonomy: 'Apply'
     };
-    setQuestions(current => [...current, newQ]);
+    setQuestions(current => {
+      const updated = [...current, newQ];
+      return updated.sort((a, b) => a.marks - b.marks);
+    });
     handleEditClick(newQ);
   };
 
@@ -338,6 +351,25 @@ function App() {
     await saveFile(blob, `${params.subject}_Paper.txt`, 'text/plain', 'txt');
   };
 
+  const handleCopyFormat = async () => {
+    setShowExportMenu(false);
+    try {
+      const html = generateDocxHTML();
+      const plain = generatePlainText();
+      
+      const clipboardItem = new ClipboardItem({
+        'text/html': new Blob([html], { type: 'text/html' }),
+        'text/plain': new Blob([plain], { type: 'text/plain' })
+      });
+      
+      await navigator.clipboard.write([clipboardItem]);
+      alert("Format copied to clipboard! You can now paste it directly into MS Word, Google Docs or email.");
+    } catch (err) {
+      console.error("Clipboard copy failed", err);
+      alert("Failed to copy. Your browser may not support this feature or you might need to try again via an explicit user click.");
+    }
+  };
+
   const handleExportWord = async () => {
     setShowExportMenu(false);
     const html = generateDocxHTML();
@@ -432,9 +464,23 @@ function App() {
         <aside className="w-full lg:w-72 flex-shrink-0 space-y-6 print:hidden">
           {/* History */}
           <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
-            <div className="p-4 border-b border-neutral-100 flex items-center space-x-2 bg-neutral-50/50">
-              <History className="w-4 h-4 text-neutral-600" />
-              <h3 className="font-semibold text-neutral-800">History Papers</h3>
+            <div className="p-4 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50">
+              <div className="flex items-center space-x-2">
+                <History className="w-4 h-4 text-neutral-600" />
+                <h3 className="font-semibold text-neutral-800">History Papers</h3>
+              </div>
+              {history.length > 0 && (
+                <button
+                  onClick={() => {
+                    if (window.confirm('Are you sure you want to clear your exam history?')) {
+                      setHistory([]);
+                    }
+                  }}
+                  className="text-xs text-red-600 hover:text-red-800 font-medium transition-colors"
+                >
+                  Clear All
+                </button>
+              )}
             </div>
             <div className="p-2 space-y-1 max-h-[300px] overflow-y-auto">
               {history.length === 0 && <p className="p-3 text-sm text-neutral-500 text-center">No history yet</p>}
@@ -480,7 +526,10 @@ function App() {
                          <button 
                            onClick={() => {
                              const newQ = {...q, id: Math.random().toString(36).substring(7)};
-                             setQuestions(current => [...current, newQ]);
+                             setQuestions(current => {
+                               const updated = [...current, newQ];
+                               return updated.sort((a,b)=>a.marks-b.marks);
+                             });
                              setRecommendedQuestions(current => current.filter((_, i) => i !== idx));
                            }}
                            className="text-xs font-medium text-[#b48b59] hover:text-[#a67c4e] flex items-center space-x-1"
@@ -503,9 +552,39 @@ function App() {
         {/* TAB: CREATE */}
         {activeTab === 'create' && (
           <motion.div key="create" initial={{opacity:0, y: 10}} animate={{opacity:1, y: 0}} exit={{opacity:0, y:-10}} className="max-w-3xl mx-auto bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden print:hidden">
-            <div className="p-6 border-b border-neutral-100 bg-neutral-50/50">
-              <h2 className="text-lg font-semibold text-neutral-800">Exam Parameters</h2>
-              <p className="text-sm text-neutral-500 mt-1">Configure the structure and difficulty of your question paper.</p>
+            <div className="p-6 border-b border-neutral-100 bg-neutral-50/50 flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-semibold text-neutral-800">Exam Parameters</h2>
+                <p className="text-sm text-neutral-500 mt-1">Configure the structure and difficulty of your question paper.</p>
+              </div>
+              <button 
+                onClick={() => {
+                  if (window.confirm('Are you sure you want to clear all current parameters to start a new template?')) {
+                    setParams({
+                      examTitle: '',
+                      examSubtitle: '',
+                      subjectCode: '',
+                      duration: '',
+                      language: 'English',
+                      subject: '',
+                      gradeLevel: '',
+                      topics: '',
+                      totalMarks: 50,
+                      marksPattern: '',
+                      allowedMarks: [],
+                      questionFormats: '',
+                      includeOrChoices: false,
+                      difficultyLevels: { easy: 34, medium: 33, hard: 33 },
+                      pastQuestionsToAvoid: '',
+                      topicTagsInput: ''
+                    });
+                  }
+                }}
+                className="px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-md text-sm font-medium hover:bg-neutral-50 transition-colors flex items-center space-x-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span>New Template</span>
+              </button>
             </div>
             
             
@@ -654,21 +733,72 @@ function App() {
               </div>
 
               <div className="pt-4 border-t border-neutral-100">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
                   <h3 className="text-sm font-medium text-neutral-800">Target Distribution</h3>
-                  <div className="flex items-center space-x-2 text-sm">
-                    <span className="text-neutral-500">Total Marks:</span>
-                    <input
-                      type="number"
-                      value={params.totalMarks}
-                      onChange={(e) => setParams({ ...params, totalMarks: parseInt(e.target.value) || 0 })}
-                      className="w-20 px-2 py-1 border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-[#b48b59]"
-                      min={10}
-                      max={200}
-                    />
+                  <div className="flex items-center space-x-4 flex-wrap gap-2">
+                    <div className="flex items-center space-x-2 text-sm">
+                      <span className="text-neutral-500">Total Marks:</span>
+                      <input
+                        type="number"
+                        value={params.totalMarks}
+                        onChange={(e) => setParams({ ...params, totalMarks: parseInt(e.target.value) || 0 })}
+                        className="w-20 px-2 py-1 border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-[#b48b59]"
+                        min={10}
+                        max={200}
+                      />
+                    </div>
+                    <div className="flex items-center space-x-2 text-sm">
+                      <span className="text-neutral-500">Num. Questions <span className="text-xs text-neutral-400 font-normal">(Optional)</span>:</span>
+                      <input
+                        type="number"
+                        value={params.numberOfQuestions || ''}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          setParams({ ...params, numberOfQuestions: isNaN(val) ? undefined : val });
+                        }}
+                        className={`w-20 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-[#b48b59] ${params.numberOfQuestions !== undefined && params.numberOfQuestions <= 0 ? 'border-red-500 bg-red-50' : 'border-neutral-300'}`}
+                        min={1}
+                        placeholder="Auto"
+                      />
+                    </div>
                   </div>
                 </div>
+                {params.numberOfQuestions !== undefined && params.numberOfQuestions <= 0 && (
+                  <p className="text-xs text-red-500 mb-4 text-right">Number of questions must be a positive integer.</p>
+                )}
                 
+                <div className="space-y-2 mb-6">
+                  <label className="text-sm font-medium text-neutral-700 flex justify-between">
+                    <span>Allowed Question Marks <span className="text-xs text-neutral-400 font-normal">(Optional)</span></span>
+                  </label>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20].map((mark) => {
+                      const isSelected = params.allowedMarks?.includes(mark) || false;
+                      return (
+                        <button
+                          key={mark}
+                          type="button"
+                          onClick={() => {
+                            const current = params.allowedMarks || [];
+                            if (!isSelected) {
+                              setParams({ ...params, allowedMarks: [...current, mark].sort((a,b)=>a-b) });
+                            } else {
+                              setParams({ ...params, allowedMarks: current.filter(m => m !== mark) });
+                            }
+                          }}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[#b48b59] ${
+                            isSelected 
+                              ? 'bg-[#b48b59] text-white border-[#b48b59] shadow-sm' 
+                              : 'bg-white text-neutral-600 border-neutral-200 hover:border-[#b48b59] hover:text-[#b48b59] hover:bg-[#b48b59]/5'
+                          }`}
+                        >
+                          {mark} {mark === 1 ? 'mark' : 'marks'}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div className="space-y-2 mb-6">
                   <label className="text-sm font-medium text-neutral-700 flex justify-between">
                     <span>Marks Pattern <span className="text-xs text-neutral-400 font-normal">(Optional)</span></span>
@@ -858,6 +988,9 @@ function App() {
                       <button onClick={handlePrint} className="w-full text-left px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-100 flex items-center space-x-2">
                         <Printer className="w-4 h-4" /> <span>Print / PDF</span>
                       </button>
+                      <button onClick={handleCopyFormat} className="w-full text-left px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-100 flex items-center space-x-2">
+                        <FileText className="w-4 h-4" /> <span>Copy with Formatting</span>
+                      </button>
                       <button onClick={handleExportWord} className="w-full text-left px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-100 flex items-center space-x-2">
                         <File className="w-4 h-4" /> <span>Word Document (.doc)</span>
                       </button>
@@ -874,28 +1007,28 @@ function App() {
             </div>
 
             {/* A4 Paper Styling for Print/Preview */}
-            <div ref={paperRef} className="bg-white p-8 sm:p-12 shadow-sm border border-neutral-200 rounded-lg print:border-none print:shadow-none print:p-0">
+            <div ref={paperRef} className="bg-white p-8 sm:p-12 shadow border border-neutral-200 rounded-lg print:border-none print:shadow-none print:p-0 font-serif max-w-[800px] mx-auto leading-relaxed text-black">
               
-              <div className="text-center mb-8 border-b-2 border-neutral-800 pb-6 print:pb-4 text-neutral-900">
-                <h2 className="text-lg font-semibold uppercase tracking-widest text-neutral-600 mb-1">{params.examSubtitle}</h2>
-                <h1 className="text-3xl font-bold uppercase tracking-wider mb-4">{params.examTitle}</h1>
-                <div className="flex justify-between items-center text-sm font-medium text-neutral-800 border-t border-neutral-200 pt-3">
+              <div className="text-center mb-8 border-b-[3px] border-black pb-6 print:pb-4">
+                <h2 className="text-xl font-bold uppercase tracking-widest text-neutral-800 mb-2">{params.examSubtitle}</h2>
+                <h1 className="text-4xl font-extrabold uppercase tracking-widest mb-4">{params.examTitle}</h1>
+                <div className="flex justify-between items-center text-sm font-semibold text-black border-t-2 border-black pt-4 px-2">
                   <div className="flex flex-col items-start space-y-1">
-                    <span>Subject: {params.subject}</span>
-                    <span className="text-neutral-500">Code: {params.subjectCode}</span>
+                    <span className="uppercase tracking-wider">Subject: {params.subject}</span>
+                    <span>Code: {params.subjectCode}</span>
                   </div>
                   <div className="flex flex-col items-center space-y-1">
-                    <span>Level: {params.gradeLevel}</span>
-                    <span className="text-neutral-500">Language: {params.language}</span>
+                    <span className="uppercase tracking-wider">Level: {params.gradeLevel}</span>
+                    <span>Language: {params.language}</span>
                   </div>
                   <div className="flex flex-col items-end space-y-1">
-                    <span>Duration: {params.duration}</span>
+                    <span className="uppercase tracking-wider">Duration: {params.duration}</span>
                     <span>Max Marks: {currentTotalMarks}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-8 print:space-y-6">
+              <div className="space-y-8 print:space-y-7 text-black">
                 {filteredQuestions.map((q, index) => (
                   <div key={q.id} className="relative group">
                     
@@ -1075,62 +1208,64 @@ function App() {
                     ) : (
                       <>
                         <div className="flex items-start">
-                          <span className="font-semibold text-neutral-900 w-8">{index + 1}.</span>
+                          <span className="font-bold text-black w-8 text-lg">{index + 1}.</span>
                           <div className="flex-1">
-                            <p className="text-neutral-900 text-base leading-relaxed whitespace-pre-wrap">{q.text}</p>
+                            <p className="text-black text-[1.05rem] leading-snug whitespace-pre-wrap font-medium">{q.text}</p>
                             
                             {q.type === 'descriptive' && q.subQuestions && q.subQuestions.length > 0 && (
-                              <div className="mt-2 space-y-2 pl-2">
+                              <div className="mt-3 space-y-3 pl-4">
                                 {q.subQuestions.map((sub, i) => (
-                                  <div key={i} className="flex items-start text-sm">
-                                    <span className="text-neutral-800 whitespace-pre-wrap">{sub}</span>
+                                  <div key={i} className="flex items-start text-[1rem]">
+                                    <span className="text-black whitespace-pre-wrap">{sub}</span>
                                   </div>
                                 ))}
                               </div>
                             )}
 
                             {q.type === 'mcq' && q.options && (
-                              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 pl-2">
+                              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 pl-4">
                                 {q.options.map((opt, i) => (
-                                  <div key={i} className="flex items-start text-sm">
-                                    <span className="font-semibold text-neutral-800 mr-2">{String.fromCharCode(65 + i)}.</span>
-                                    <span className="text-neutral-800">{opt}</span>
+                                  <div key={i} className="flex items-start text-[1rem]">
+                                    <span className="font-bold text-black mr-3">{String.fromCharCode(65 + i)}.</span>
+                                    <span className="text-black">{opt}</span>
                                   </div>
                                 ))}
                               </div>
                             )}
 
                             {q.hasOrChoice && q.orText && (
-                              <div className="mt-6 pt-5 border-t border-dashed border-neutral-300">
-                                <div className="text-center font-bold text-neutral-500 mb-4 uppercase text-sm tracking-widest leading-none">OR</div>
-                                <p className="text-neutral-900 text-base leading-relaxed whitespace-pre-wrap">{q.orText}</p>
-                                
-                                {q.orType === 'descriptive' && q.orSubQuestions && q.orSubQuestions.length > 0 && (
-                                  <div className="mt-2 space-y-2 pl-2">
-                                    {q.orSubQuestions.map((sub, i) => (
-                                      <div key={i} className="flex items-start text-sm">
-                                        <span className="text-neutral-800 whitespace-pre-wrap">{sub}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
+                              <div className="mt-7 pt-6 relative flex justify-center border-t border-black/20">
+                                <span className="bg-white px-4 absolute -top-3 text-center font-bold text-neutral-500 tracking-[0.2em]">OR</span>
+                                <div className="w-full">
+                                  <p className="text-black text-[1.05rem] leading-snug whitespace-pre-wrap font-medium mt-2">{q.orText}</p>
+                                  
+                                  {q.orType === 'descriptive' && q.orSubQuestions && q.orSubQuestions.length > 0 && (
+                                    <div className="mt-3 space-y-3 pl-4">
+                                      {q.orSubQuestions.map((sub, i) => (
+                                        <div key={i} className="flex items-start text-[1rem]">
+                                          <span className="text-black whitespace-pre-wrap">{sub}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
 
-                                {q.orType === 'mcq' && q.orOptions && (
-                                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 pl-2">
-                                    {q.orOptions.map((opt, i) => (
-                                      <div key={i} className="flex items-start text-sm">
-                                        <span className="font-semibold text-neutral-800 mr-2">{String.fromCharCode(65 + i)}.</span>
-                                        <span className="text-neutral-800">{opt}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
+                                  {q.orType === 'mcq' && q.orOptions && (
+                                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 pl-4">
+                                      {q.orOptions.map((opt, i) => (
+                                        <div key={i} className="flex items-start text-[1rem]">
+                                          <span className="font-bold text-black mr-3">{String.fromCharCode(65 + i)}.</span>
+                                          <span className="text-black">{opt}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             )}
 
                           </div>
-                          <div className="ml-4 flex-shrink-0">
-                            <span className="text-sm font-medium text-neutral-600">[{q.marks} {q.marks === 1 ? 'Mark' : 'Marks'}]</span>
+                          <div className="ml-4 flex-shrink-0 mt-1">
+                            <span className="font-semibold text-black tracking-wide">[{q.marks} {q.marks === 1 ? 'Mark' : 'Marks'}]</span>
                           </div>
                         </div>
 

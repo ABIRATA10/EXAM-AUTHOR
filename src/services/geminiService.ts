@@ -30,6 +30,8 @@ export interface GeneratedQuestion {
 
 export interface PaperGenerationParams {
   topicTagsInput?: string;
+  allowedMarks?: number[];
+  numberOfQuestions?: number;
   examTitle: string;
   examSubtitle: string;
   subjectCode: string;
@@ -117,12 +119,17 @@ Create an exam paper for the following context:
 - Topics Covered: ${params.topics} ${params.topicTagsInput ? '- Use these specific topic tags: ' + params.topicTagsInput : ''}
 - Question Formats allowed: ${params.questionFormats}
 - Total Marks for the Paper: ${params.totalMarks}
+${params.numberOfQuestions ? `- Number of Questions Required: ${params.numberOfQuestions}` : ''}
+${params.allowedMarks && params.allowedMarks.length > 0 ? `- Allowed Marks per Question: Only ${params.allowedMarks.join(', ')}` : ''}
 ${params.marksPattern ? `- Requested Marks Pattern: ${params.marksPattern}` : ''}
 - Language: ${params.language}
 
 Requirements:
 1. Generate a diverse set of questions in ${params.language}.
 1a. CRITICAL: For each question, YOU MUST provide an array of exactly 1-3 strings in the 'topicTags' field, representing the topics it covers.
+1b. CRITICAL: If the topic involves current events, you MUST fetch and include very recent, confirmed news, up to the last 2 minutes if possible. Ensure ground truth accuracy.
+${params.allowedMarks && params.allowedMarks.length > 0 ? `1c. CRITICAL: The marks for EVERY question MUST be exactly one of the requested values: [${params.allowedMarks.join(', ')}]. Do NOT use any other mark values.` : ''}
+${params.numberOfQuestions ? `1d. CRITICAL: You MUST generate EXACTLY ${params.numberOfQuestions} questions.` : ''}
 2. The total sum of marks for all questions MUST EXACTLY equal ${params.totalMarks}.
 ${params.marksPattern ? `3. You MUST STRONGLY ADHERE to the requested marks pattern: ${params.marksPattern}` : ''}
 4. Follow this approximate difficulty distribution: ${easyPct}% Easy, ${mediumPct}% Medium, ${hardPct}% Hard.
@@ -147,6 +154,7 @@ ${params.pastQuestionsToAvoid ? `CRITICAL: Ensure that NONE of the following pas
       model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
+        tools: [{ googleSearch: {} }],
         responseMimeType: 'application/json',
         responseSchema: questionSchema,
         temperature: 0.7,
@@ -227,6 +235,7 @@ Output as a structured JSON object matching the requested schema.
       model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
+        tools: [{ googleSearch: {} }],
         responseMimeType: 'application/json',
         responseSchema: singleQuestionSchema,
         temperature: 0.7,
@@ -271,6 +280,7 @@ Requirements:
       model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
+        tools: [{ googleSearch: {} }],
         responseMimeType: 'application/json',
         responseSchema: questionSchema,
         temperature: 0.7,
