@@ -11,12 +11,14 @@ function getAI() {
   return new GoogleGenAI({ apiKey });
 }
 
-async function generateWithRetry(ai: GoogleGenAI, request: any, maxRetries = 3) {
+async function generateWithRetry(ai: GoogleGenAI, request: any, maxRetries = 5) {
   let attempt = 0;
+  let lastError;
   while (attempt < maxRetries) {
     try {
       return await ai.models.generateContent(request);
     } catch (error: any) {
+      lastError = error;
       const isRetryable = error && (
         error.status === 503 || 
         error.status === 500 || 
@@ -27,7 +29,6 @@ async function generateWithRetry(ai: GoogleGenAI, request: any, maxRetries = 3) 
         error.status === 'RESOURCE_EXHAUSTED' || 
         (error.message && (error.message.includes('503') || error.message.includes('500') || error.message.includes('502') || error.message.includes('504') || error.message.includes('fetch failed')))
       );
-
       if (isRetryable) {
         attempt++;
         if (attempt >= maxRetries) throw error;
@@ -40,6 +41,7 @@ async function generateWithRetry(ai: GoogleGenAI, request: any, maxRetries = 3) 
       }
     }
   }
+  throw lastError;
 }
 
 export interface GeneratedQuestion {
@@ -124,16 +126,36 @@ const questionSchema: Schema = {
 
 
 function parseCleanJSON(text: string) {
-  let cleaned = text.trim();
-  if (cleaned.startsWith('```json')) {
-    cleaned = cleaned.substring(7);
-  } else if (cleaned.startsWith('```')) {
-    cleaned = cleaned.substring(3);
+  try {
+    const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (match) {
+      return JSON.parse(match[1]);
+    }
+    const firstBrace = text.indexOf('{');
+    const lastBrace = text.lastIndexOf('}');
+    const firstBracket = text.indexOf('[');
+    const lastBracket = text.lastIndexOf(']');
+    
+    let startIdx = -1;
+    let endIdx = -1;
+    
+    if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket) && lastBrace > firstBrace) {
+        startIdx = firstBrace;
+        endIdx = lastBrace + 1;
+    } else if (firstBracket !== -1 && lastBracket > firstBracket) {
+        startIdx = firstBracket;
+        endIdx = lastBracket + 1;
+    }
+    
+    if (startIdx !== -1 && endIdx !== -1) {
+        return JSON.parse(text.substring(startIdx, endIdx));
+    }
+    
+    return JSON.parse(text.trim());
+  } catch (e) {
+    console.error("Failed to parse JSON string:", text);
+    throw e;
   }
-  if (cleaned.endsWith('```')) {
-    cleaned = cleaned.substring(0, cleaned.length - 3);
-  }
-  return JSON.parse(cleaned.trim());
 }
 
 export async function generateQuestionPaper(params: PaperGenerationParams): Promise<GeneratedQuestion[]> {
