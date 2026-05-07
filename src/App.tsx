@@ -47,6 +47,35 @@ function App() {
 
   const [showExportMenu, setShowExportMenu] = useState(false);
   const paperRef = useRef<HTMLDivElement>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isStandalone, setIsStandalone] = useState(false);
+
+  useEffect(() => {
+    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true) {
+      setIsStandalone(true);
+    }
+    
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsStandalone(false);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+        setIsStandalone(true);
+      }
+    } else {
+      alert("To install this app, tap the Share icon and select 'Add to Home Screen' (on iOS) or 'Install App' from your browser menu (on Android/Desktop).");
+    }
+  };
   
   const [params, setParams] = useState<PaperGenerationParams>({
     examTitle: 'Mid-Term Examination 2026',
@@ -385,19 +414,35 @@ function App() {
       <header className="bg-[#4d3826] border-b border-[#3b2a1c] sticky top-0 z-10 print:hidden relative overflow-hidden text-[#d8b88c]">
         {/* Subtle geometric grid background overlay for the header */}
         <div className="absolute inset-0 opacity-[0.05] pointer-events-none" style={{ backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between relative z-10">
-          <div className="flex items-center space-x-3 text-[#e6cda3]">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 22S3 18 3 9V5L12 2L21 5V9C21 18 12 22 12 22Z" stroke="#b48b59" strokeWidth="1.5" fill="#362517" strokeLinecap="round" strokeLinejoin="round"/>
-              <text x="12" y="16.5" textAnchor="middle" fontSize="13" fontFamily="serif" fontWeight="400" fill="#fdfaf3">EA</text>
-            </svg>
-            <h1 className="text-xl tracking-[0.25em] font-serif uppercase text-[#fdfaf3]">Exam Author</h1>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-0 sm:h-16 flex flex-col sm:flex-row items-center justify-between relative z-10 gap-4 sm:gap-0">
+          
+          {/* Top row on mobile: Logo + Title + Install Button */}
+          <div className="flex items-center justify-between w-full sm:w-auto">
+            <div className="flex items-center space-x-3 text-[#e6cda3]">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
+                <path d="M12 22S3 18 3 9V5L12 2L21 5V9C21 18 12 22 12 22Z" stroke="#b48b59" strokeWidth="1.5" fill="#362517" strokeLinecap="round" strokeLinejoin="round"/>
+                <text x="12" y="16.5" textAnchor="middle" fontSize="13" fontFamily="serif" fontWeight="400" fill="#fdfaf3">EA</text>
+              </svg>
+              <h1 className="text-lg sm:text-xl tracking-widest sm:tracking-[0.25em] font-serif uppercase text-[#fdfaf3]">Exam Author</h1>
+            </div>
+            
+            {!isStandalone && (
+              <button
+                onClick={handleInstallApp}
+                className="sm:hidden bg-[#b48b59] text-white hover:bg-[#a67c4e] px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center space-x-1.5 shadow-sm ml-4 flex-shrink-0"
+                title="Install App"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Install App</span>
+              </button>
+            )}
           </div>
-          <div className="flex items-center space-x-4">
-            <nav className="flex space-x-1">
+
+          <div className="flex items-center space-x-2 sm:space-x-4 w-full sm:w-auto overflow-x-auto no-scrollbar pb-1 sm:pb-0">
+            <nav className="flex space-x-1 sm:space-x-2 flex-1 justify-center sm:justify-start min-w-max">
               <button
                 onClick={() => setActiveTab('create')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'create' ? 'bg-[#3b2a1c] text-[#e6cda3]' : 'text-[#b48b59] hover:bg-[#5b432e] hover:text-[#e6cda3]'}`}
+                className={`px-4 sm:px-4 py-2 flex-1 sm:flex-none rounded-md text-sm font-medium transition-colors flex justify-center ${activeTab === 'create' ? 'bg-[#3b2a1c] text-[#e6cda3]' : 'text-[#b48b59] hover:bg-[#5b432e] hover:text-[#e6cda3]'}`}
               >
                 <div className="flex items-center space-x-2">
                   <Settings className="w-4 h-4" />
@@ -407,7 +452,7 @@ function App() {
               <button
                 onClick={() => setActiveTab('paper')}
                 disabled={questions.length === 0}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${questions.length === 0 ? 'opacity-50 cursor-not-allowed' : ''} ${activeTab === 'paper' ? 'bg-[#3b2a1c] text-[#e6cda3]' : 'text-[#b48b59] hover:bg-[#5b432e] hover:text-[#e6cda3]'}`}
+                className={`px-4 sm:px-4 py-2 flex-1 sm:flex-none rounded-md text-sm font-medium transition-colors flex justify-center ${questions.length === 0 ? 'opacity-50 cursor-not-allowed' : ''} ${activeTab === 'paper' ? 'bg-[#3b2a1c] text-[#e6cda3]' : 'text-[#b48b59] hover:bg-[#5b432e] hover:text-[#e6cda3]'}`}
               >
                 <div className="flex items-center space-x-2">
                   <FileText className="w-4 h-4" />
@@ -417,7 +462,7 @@ function App() {
               <button
                 onClick={() => setActiveTab('analytics')}
                 disabled={questions.length === 0}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${questions.length === 0 ? 'opacity-50 cursor-not-allowed' : ''} ${activeTab === 'analytics' ? 'bg-[#3b2a1c] text-[#e6cda3]' : 'text-[#b48b59] hover:bg-[#5b432e] hover:text-[#e6cda3]'}`}
+                className={`px-4 sm:px-4 py-2 flex-1 sm:flex-none rounded-md text-sm font-medium transition-colors flex justify-center ${questions.length === 0 ? 'opacity-50 cursor-not-allowed' : ''} ${activeTab === 'analytics' ? 'bg-[#3b2a1c] text-[#e6cda3]' : 'text-[#b48b59] hover:bg-[#5b432e] hover:text-[#e6cda3]'}`}
               >
                 <div className="flex items-center space-x-2">
                   <BarChart3 className="w-4 h-4" />
@@ -425,6 +470,16 @@ function App() {
                 </div>
               </button>
             </nav>
+            {!isStandalone && (
+              <button
+                onClick={handleInstallApp}
+                className="hidden sm:flex bg-[#b48b59] text-white hover:bg-[#a67c4e] px-4 py-2 rounded-md text-sm font-medium transition-colors items-center space-x-2 shadow-sm flex-shrink-0"
+                title="Install App"
+              >
+                <Download className="w-4 h-4" />
+                <span>Install App</span>
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -894,7 +949,7 @@ function App() {
               <button
                 onClick={handleGenerate}
                 disabled={isGenerating}
-                className="bg-[#b48b59] hover:bg-[#a67c4e] text-white px-6 py-2.5 rounded-md font-medium text-sm transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full sm:w-auto bg-[#b48b59] hover:bg-[#a67c4e] text-white px-6 py-2.5 rounded-md font-medium text-sm transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isGenerating ? (
                   <>
@@ -947,10 +1002,10 @@ function App() {
                 <div className="relative">
                   <button
                     onClick={() => setShowExportMenu(!showExportMenu)}
-                    className="bg-white border border-neutral-300 hover:bg-neutral-50 text-neutral-700 px-4 py-2 rounded-md font-medium text-sm transition-colors flex items-center space-x-2"
+                    className="bg-white border border-neutral-300 hover:bg-neutral-50 text-neutral-700 px-3 sm:px-4 py-2 rounded-md font-medium text-sm transition-colors flex items-center space-x-2"
                   >
                     <Download className="w-4 h-4" />
-                    <span>Export</span>
+                    <span className="hidden sm:inline">Export</span>
                     <ChevronDown className={`w-4 h-4 transition-transform ${showExportMenu ? 'rotate-180' : ''}`} />
                   </button>
 
