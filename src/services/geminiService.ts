@@ -129,28 +129,34 @@ function parseCleanJSON(text: string) {
   try {
     const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (match) {
-      return JSON.parse(match[1]);
+      return JSON.parse(match[1].trim());
     }
+    
+    let trimmed = text.trim();
+    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+      return JSON.parse(trimmed);
+    }
+
     const firstBrace = text.indexOf('{');
     const lastBrace = text.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      try {
+        return JSON.parse(text.substring(firstBrace, lastBrace + 1));
+      } catch (e) {
+        // ignore and fall through
+      }
+    }
+
     const firstBracket = text.indexOf('[');
     const lastBracket = text.lastIndexOf(']');
-    
-    let startIdx = -1;
-    let endIdx = -1;
-    
-    if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket) && lastBrace > firstBrace) {
-        startIdx = firstBrace;
-        endIdx = lastBrace + 1;
-    } else if (firstBracket !== -1 && lastBracket > firstBracket) {
-        startIdx = firstBracket;
-        endIdx = lastBracket + 1;
+    if (firstBracket !== -1 && lastBracket > firstBracket) {
+      try {
+        return JSON.parse(text.substring(firstBracket, lastBracket + 1));
+      } catch (e) {
+        // ignore and fall through
+      }
     }
-    
-    if (startIdx !== -1 && endIdx !== -1) {
-        return JSON.parse(text.substring(startIdx, endIdx));
-    }
-    
+
     return JSON.parse(text.trim());
   } catch (e) {
     console.error("Failed to parse JSON string:", text);

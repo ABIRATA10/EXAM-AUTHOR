@@ -47,26 +47,6 @@ function App() {
 
   const [showExportMenu, setShowExportMenu] = useState(false);
   const paperRef = useRef<HTMLDivElement>(null);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (e: any) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-  }, []);
-
-  const handleInstallApp = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setDeferredPrompt(null);
-      }
-    }
-  };
   
   const [params, setParams] = useState<PaperGenerationParams>({
     examTitle: 'Mid-Term Examination 2026',
@@ -445,15 +425,6 @@ function App() {
                 </div>
               </button>
             </nav>
-            {deferredPrompt && (
-              <button
-                onClick={handleInstallApp}
-                className="bg-[#b48b59] text-white hover:bg-[#a67c4e] px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 shadow-sm"
-              >
-                <Download className="w-4 h-4" />
-                <span>Install App</span>
-              </button>
-            )}
           </div>
         </div>
       </header>
